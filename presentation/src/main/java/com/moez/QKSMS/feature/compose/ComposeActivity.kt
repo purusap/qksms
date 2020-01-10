@@ -43,7 +43,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.jakewharton.rxbinding2.view.clicks
 import com.jakewharton.rxbinding2.widget.textChanges
 import com.moez.QKSMS.R
-import com.moez.QKSMS.common.androidxcompat.scope
+import com.moez.QKSMS.common.Navigator
 import com.moez.QKSMS.common.base.QkThemedActivity
 import com.moez.QKSMS.common.util.DateFormatter
 import com.moez.QKSMS.common.util.extensions.autoScrollToStart
@@ -55,8 +55,8 @@ import com.moez.QKSMS.common.util.extensions.setVisible
 import com.moez.QKSMS.common.util.extensions.showKeyboard
 import com.moez.QKSMS.model.Attachment
 import com.moez.QKSMS.model.Contact
-import com.moez.QKSMS.model.Message
-import com.uber.autodispose.kotlin.autoDisposable
+import com.uber.autodispose.android.lifecycle.scope
+import com.uber.autodispose.autoDisposable
 import dagger.android.AndroidInjection
 import io.reactivex.Observable
 import io.reactivex.subjects.PublishSubject
@@ -79,6 +79,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     @Inject lateinit var contactsAdapter: ContactAdapter
     @Inject lateinit var dateFormatter: DateFormatter
     @Inject lateinit var messageAdapter: MessagesAdapter
+    @Inject lateinit var navigator: Navigator
     @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
 
     override val activityVisibleIntent: Subject<Boolean> = PublishSubject.create()
@@ -90,9 +91,10 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     override val menuReadyIntent: Observable<Unit> = menu.map { Unit }
     override val optionsItemIntent: Subject<Int> = PublishSubject.create()
     override val sendAsGroupIntent by lazy { sendAsGroupBackground.clicks() }
-    override val messageClickIntent: Subject<Message> by lazy { messageAdapter.clicks }
+    override val messageClickIntent: Subject<Long> by lazy { messageAdapter.clicks }
+    override val messagePartClickIntent: Subject<Long> by lazy { messageAdapter.partClicks }
     override val messagesSelectedIntent by lazy { messageAdapter.selectionChanges }
-    override val cancelSendingIntent: Subject<Message> by lazy { messageAdapter.cancelSending }
+    override val cancelSendingIntent: Subject<Long> by lazy { messageAdapter.cancelSending }
     override val attachmentDeletedIntent: Subject<Attachment> by lazy { attachmentAdapter.attachmentDeleted }
     override val textChangedIntent by lazy { message.textChanges() }
     override val attachIntent by lazy { Observable.merge(attach.clicks(), attachingBackground.clicks()) }
@@ -250,6 +252,10 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
                 .show()
     }
 
+    override fun requestDefaultSms() {
+        navigator.showDefaultSmsDialog(this)
+    }
+
     override fun requestStoragePermission() {
         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 0)
     }
@@ -313,6 +319,7 @@ class ComposeActivity : QkThemedActivity(), ComposeView {
     override fun showQksmsPlusSnackbar(message: Int) {
         Snackbar.make(contentView, message, Snackbar.LENGTH_LONG).run {
             setAction(R.string.button_more) { viewQksmsPlusIntent.onNext(Unit) }
+            setActionTextColor(colors.theme().theme)
             show()
         }
     }
